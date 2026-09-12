@@ -400,25 +400,33 @@ class _StudyScreenState extends State<StudyScreen>
                       Text("Today's Sessions", style: textTheme.titleLarge),
                       const SizedBox(height: 12),
 
-                      if (_todaySessions.isEmpty)
-                        _EmptyState(
-                          icon: Icons.menu_book_outlined,
-                          message: 'No study sessions today.\nTap + to add one.',
-                        )
-                      else
-                        Container(
+                      Builder(builder: (context) {
+                        final today = _todaySessions;
+                        if (today.isEmpty) {
+                          return const _EmptyState(
+                            icon: Icons.menu_book_outlined,
+                            message: 'No study sessions today.\nTap + to add one.',
+                          );
+                        }
+                        return Container(
                           decoration: BoxDecoration(
                             color: AppColors.surface,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(color: AppColors.border),
                           ),
                           child: Column(
-                            children: List.generate(_todaySessions.length, (i) {
-                              final s = _todaySessions[i];
+                            children: List.generate(today.length, (i) {
+                              final s = today[i];
                               return Column(
                                 children: [
                                   _SessionItem(
                                     session: s,
+                                    onStartTimer: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => StudyTimerScreen(initialSession: s),
+                                      ),
+                                    ).then((_) => _load()),
                                     onEdit: () => _showEditSheet(s),
                                     onConfirmDelete: () => _showDeleteConfirmDialog(s),
                                     onDelete: () async {
@@ -427,13 +435,14 @@ class _StudyScreenState extends State<StudyScreen>
                                       _load();
                                     },
                                   ),
-                                  if (i < _todaySessions.length - 1)
+                                  if (i < today.length - 1)
                                     const Divider(height: 1, indent: 16, endIndent: 16),
                                 ],
                               );
                             }),
                           ),
-                        ),
+                        );
+                      }),
 
                       const SizedBox(height: 32),
                     ],
@@ -620,12 +629,14 @@ class _SubjectItem extends StatelessWidget {
 
 class _SessionItem extends StatelessWidget {
   final StudySession session;
+  final VoidCallback onStartTimer;
   final VoidCallback onEdit;
   final Future<bool> Function() onConfirmDelete;
   final VoidCallback onDelete;
 
   const _SessionItem({
     required this.session,
+    required this.onStartTimer,
     required this.onEdit,
     required this.onConfirmDelete,
     required this.onDelete,
@@ -689,7 +700,14 @@ class _SessionItem extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
+              IconButton(
+                icon: const Icon(Icons.play_circle_outline, size: 22, color: AppColors.primary),
+                tooltip: 'Mulai Timer',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                onPressed: onStartTimer,
+              ),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, size: 18, color: AppColors.textSecondary),
                 color: AppColors.surface,
@@ -699,7 +717,9 @@ class _SessionItem extends StatelessWidget {
                   side: const BorderSide(color: AppColors.border),
                 ),
                 onSelected: (val) async {
-                  if (val == 'edit') {
+                  if (val == 'start') {
+                    onStartTimer();
+                  } else if (val == 'edit') {
                     onEdit();
                   } else if (val == 'delete') {
                     final confirmed = await onConfirmDelete();
@@ -709,6 +729,17 @@ class _SessionItem extends StatelessWidget {
                   }
                 },
                 itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'start',
+                    height: 38,
+                    child: Row(
+                      children: [
+                        Icon(Icons.play_arrow_outlined, size: 18, color: AppColors.primary),
+                        SizedBox(width: 10),
+                        Text('Mulai Timer', style: TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
                   const PopupMenuItem(
                     value: 'edit',
                     height: 38,

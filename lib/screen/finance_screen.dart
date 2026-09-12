@@ -409,85 +409,93 @@ class _FinanceScreenState extends State<FinanceScreen>
                       ),
                       const SizedBox(height: 24),
 
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Transactions', style: textTheme.titleLarge),
-                          Text('${_filteredTransactions.length} items', style: const TextStyle(
-                            color: AppColors.textSecondary, fontSize: 13,
-                          )),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
+                      Builder(builder: (context) {
+                        final filtered = _filteredTransactions;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Transactions', style: textTheme.titleLarge),
+                                Text('${filtered.length} items', style: const TextStyle(
+                                  color: AppColors.textSecondary, fontSize: 13,
+                                )),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
 
-                      // Filter chips
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: ['Semua', 'Bulan Ini', 'Minggu Ini'].map((filter) {
-                            final selected = _selectedFilter == filter;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ChoiceChip(
-                                label: Text(filter),
-                                selected: selected,
-                                showCheckmark: false,
-                                labelStyle: TextStyle(
-                                  color: selected ? AppColors.background : AppColors.textSecondary,
-                                  fontSize: 12,
-                                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                                ),
-                                backgroundColor: AppColors.surfaceAlt,
-                                selectedColor: AppColors.primary,
-                                side: BorderSide(
-                                  color: selected ? AppColors.primary : AppColors.border,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                onSelected: (_) => setState(() => _selectedFilter = filter),
+                            // Filter chips
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: ['Semua', 'Bulan Ini', 'Minggu Ini'].map((filter) {
+                                  final selected = _selectedFilter == filter;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: ChoiceChip(
+                                      label: Text(filter),
+                                      selected: selected,
+                                      showCheckmark: false,
+                                      labelStyle: TextStyle(
+                                        color: selected ? AppColors.background : AppColors.textSecondary,
+                                        fontSize: 12,
+                                        fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                                      ),
+                                      backgroundColor: AppColors.surfaceAlt,
+                                      selectedColor: AppColors.primary,
+                                      side: BorderSide(
+                                        color: selected ? AppColors.primary : AppColors.border,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      onSelected: (_) => setState(() => _selectedFilter = filter),
+                                    ),
+                                  );
+                                }).toList(),
                               ),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
+                            ),
+                            const SizedBox(height: 14),
 
-                      if (_filteredTransactions.isEmpty)
-                        _EmptyState(
-                          icon: Icons.account_balance_wallet_outlined,
-                          message: _selectedFilter == 'Semua'
-                              ? 'No transactions yet.\nTap + to add one.'
-                              : 'Tidak ada transaksi untuk filter "$_selectedFilter".',
-                        )
-                      else
-                        Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: Column(
-                            children: List.generate(_filteredTransactions.length, (i) {
-                              final t = _filteredTransactions[i];
-                              return Column(
-                                children: [
-                                  _TransactionTile(
-                                    transaction: t,
-                                    onEdit: () => _showEditSheet(t),
-                                    onConfirmDelete: () => _showDeleteConfirmDialog(t),
-                                    onDelete: () async {
-                                      await DatabaseService.instance.deleteTransaction(t.id!);
-                                      _load();
-                                    },
-                                  ),
-                                  if (i < _filteredTransactions.length - 1)
-                                    const Divider(height: 1, indent: 16, endIndent: 16),
-                                ],
-                              );
-                            }),
-                          ),
-                        ),
+                            if (filtered.isEmpty)
+                              _EmptyState(
+                                icon: Icons.account_balance_wallet_outlined,
+                                message: _selectedFilter == 'Semua'
+                                    ? 'No transactions yet.\nTap + to add one.'
+                                    : 'Tidak ada transaksi untuk filter "$_selectedFilter".',
+                              )
+                            else
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: AppColors.surface,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: Column(
+                                  children: List.generate(filtered.length, (i) {
+                                    final t = filtered[i];
+                                    return Column(
+                                      children: [
+                                        _TransactionTile(
+                                          transaction: t,
+                                          onEdit: () => _showEditSheet(t),
+                                          onConfirmDelete: () => _showDeleteConfirmDialog(t),
+                                          onDelete: () async {
+                                            await DatabaseService.instance.deleteTransaction(t.id!);
+                                            _load();
+                                          },
+                                        ),
+                                        if (i < filtered.length - 1)
+                                          const Divider(height: 1, indent: 16, endIndent: 16),
+                                      ],
+                                    );
+                                  }),
+                                ),
+                              ),
+                          ],
+                        );
+                      }),
 
                       if (cats.isNotEmpty) ...[
                         const SizedBox(height: 24),

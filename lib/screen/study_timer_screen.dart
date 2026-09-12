@@ -8,7 +8,8 @@ import '../services/database_services.dart';
 enum TimerStatus { initial, running, paused, completed }
 
 class StudyTimerScreen extends StatefulWidget {
-  const StudyTimerScreen({super.key});
+  final StudySession? initialSession;
+  const StudyTimerScreen({super.key, this.initialSession});
 
   @override
   State<StudyTimerScreen> createState() => _StudyTimerScreenState();
@@ -21,25 +22,51 @@ class _StudyTimerScreenState extends State<StudyTimerScreen>
   int _remainingSeconds = 25 * 60;
   TimerStatus _status = TimerStatus.initial;
   bool _failedDueToAppLeave = false;
+  bool _isFullscreen = false;
 
-  final TextEditingController _subjectCtrl =
-      TextEditingController(text: 'Focus Session');
-  final TextEditingController _topicCtrl =
-      TextEditingController(text: 'Self-Study');
+  late final TextEditingController _subjectCtrl;
+  late final TextEditingController _topicCtrl;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    if (widget.initialSession != null) {
+      _subjectCtrl = TextEditingController(text: widget.initialSession!.subject);
+      _topicCtrl = TextEditingController(text: widget.initialSession!.topic);
+      final sessionSecs = widget.initialSession!.durationMinutes * 60;
+      if (sessionSecs > 0) {
+        _totalSeconds = sessionSecs;
+        _remainingSeconds = sessionSecs;
+      }
+    } else {
+      _subjectCtrl = TextEditingController(text: 'Focus Session');
+      _topicCtrl = TextEditingController(text: 'Self-Study');
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    if (_isFullscreen) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
     _subjectCtrl.dispose();
     _topicCtrl.dispose();
     super.dispose();
+  }
+
+  void _toggleFullscreen(bool enable) {
+    setState(() => _isFullscreen = enable);
+    if (enable) {
+      // Sembunyikan status bar dan navigation bar (Mode Layar Penuh Murni)
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } else {
+      // Tampilkan kembali navigasi dan status bar sistem normal
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
   }
 
   // ── Deteksi Pindah Aplikasi (Disiplin Belajar) ───────────────────
@@ -146,6 +173,10 @@ class _StudyTimerScreenState extends State<StudyTimerScreen>
       date: DateTime.now(),
       isDone: true,
     ));
+
+    // Bunyikan alert alarm dan getaran selesai
+    SystemSound.play(SystemSoundType.alert);
+    HapticFeedback.heavyImpact();
 
     if (!mounted) return;
     showDialog(
@@ -361,6 +392,18 @@ class _StudyTimerScreenState extends State<StudyTimerScreen>
               }
             },
           ),
+          actions: [
+            IconButton(
+              icon: Icon(
+                _isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                size: 24,
+                color: _isFullscreen ? AppColors.primary : AppColors.textSecondary,
+              ),
+              tooltip: _isFullscreen ? 'Keluar Layar Penuh' : 'Mode Layar Penuh (Immersive)',
+              onPressed: () => _toggleFullscreen(!_isFullscreen),
+            ),
+            const SizedBox(width: 4),
+          ],
         ),
         body: SafeArea(
           child: LayoutBuilder(
@@ -508,6 +551,65 @@ class _StudyTimerScreenState extends State<StudyTimerScreen>
 
                     const SizedBox(height: 24),
 
+                    // ── Fullscreen Toggle Card ─────────────────────────────
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _isFullscreen ? Icons.fullscreen : Icons.stay_current_portrait_outlined,
+                                  size: 18,
+                                  color: _isFullscreen ? AppColors.primary : AppColors.textSecondary,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _isFullscreen ? 'Mode Layar Penuh (Aktif)' : 'Mode Layar Normal',
+                                        style: const TextStyle(
+                                          color: AppColors.textPrimary,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        _isFullscreen
+                                            ? 'Status bar & navigasi disembunyikan'
+                                            : 'Status bar & tombol navigasi tetap ada',
+                                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: _isFullscreen,
+                            onChanged: (v) => _toggleFullscreen(v),
+                            activeThumbColor: AppColors.background,
+                            activeTrackColor: AppColors.primary,
+                            inactiveTrackColor: AppColors.surfaceAlt,
+                            inactiveThumbColor: AppColors.textSecondary,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
                     // Disiplin notice
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -531,7 +633,7 @@ class _StudyTimerScreenState extends State<StudyTimerScreen>
                       ),
                     ),
 
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
 
                     // ── Action Buttons ────────────────────────────────────
                     Row(
