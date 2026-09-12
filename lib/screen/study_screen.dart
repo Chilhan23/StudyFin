@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../main.dart' show AppColors;
 import '../models/study_session.dart';
 import '../services/database_services.dart';
+import 'study_timer_screen.dart';
 
 class StudyScreen extends StatefulWidget {
   const StudyScreen({super.key});
@@ -176,6 +177,148 @@ class _StudyScreenState extends State<StudyScreen>
     );
   }
 
+  void _showEditSheet(StudySession session) {
+    final subjectCtrl = TextEditingController(text: session.subject);
+    final topicCtrl   = TextEditingController(text: session.topic);
+    final durationCtrl = TextEditingController(text: session.durationMinutes.toString());
+    bool isDone = session.isDone;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => Padding(
+          padding: EdgeInsets.only(
+            left: 20, right: 20, top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(
+                width: 40, height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              )),
+              const Text('Edit Study Session', style: TextStyle(
+                color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600,
+              )),
+              const SizedBox(height: 20),
+              _SheetField(controller: subjectCtrl, label: 'Subject', hint: 'e.g. Mathematics'),
+              const SizedBox(height: 12),
+              _SheetField(controller: topicCtrl, label: 'Topic', hint: 'e.g. Integration'),
+              const SizedBox(height: 12),
+              _SheetField(
+                controller: durationCtrl,
+                label: 'Duration (minutes)',
+                hint: 'e.g. 60',
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Mark as completed', style: TextStyle(
+                    color: AppColors.textSecondary, fontSize: 13,
+                  )),
+                  Switch(
+                    value: isDone,
+                    onChanged: (v) => setSheet(() => isDone = v),
+                    activeThumbColor: AppColors.background,
+                    activeTrackColor: AppColors.primary,
+                    inactiveTrackColor: AppColors.surfaceAlt,
+                    inactiveThumbColor: AppColors.textSecondary,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.background,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () async {
+                    final subject = subjectCtrl.text.trim();
+                    final topic   = topicCtrl.text.trim();
+                    final mins    = int.tryParse(durationCtrl.text.trim()) ?? 0;
+                    if (subject.isEmpty || topic.isEmpty || mins <= 0) return;
+                    await DatabaseService.instance.updateStudySession(session.copyWith(
+                      subject: subject,
+                      topic: topic,
+                      durationMinutes: mins,
+                      isDone: isDone,
+                    ));
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    _load();
+                  },
+                  child: const Text('Update Session', style: TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w600,
+                  )),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _showDeleteConfirmDialog(StudySession session) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.delete_outline, color: AppColors.textPrimary, size: 20),
+            SizedBox(width: 8),
+            Text('Hapus Sesi Belajar?', style: TextStyle(
+              color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600,
+            )),
+          ],
+        ),
+        content: Text(
+          'Hapus data ini (${session.subject} - ${session.topic})? Data yang dihapus tidak dapat dikembalikan.',
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.background,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus Data'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
   // ── Build ──────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
@@ -188,7 +331,19 @@ class _StudyScreenState extends State<StudyScreen>
       appBar: AppBar(
         title: const Text('Study Tracker'),
         actions: [
-          IconButton(icon: const Icon(Icons.add, size: 22), onPressed: _showAddSheet),
+          IconButton(
+            icon: const Icon(Icons.timer_outlined, size: 22),
+            tooltip: 'Study Timer',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const StudyTimerScreen()),
+            ).then((_) => _load()),
+          ),
+          IconButton(
+            icon: const Icon(Icons.add, size: 22),
+            tooltip: 'Add Session',
+            onPressed: _showAddSheet,
+          ),
           const SizedBox(width: 4),
         ],
       ),
@@ -264,6 +419,8 @@ class _StudyScreenState extends State<StudyScreen>
                                 children: [
                                   _SessionItem(
                                     session: s,
+                                    onEdit: () => _showEditSheet(s),
+                                    onConfirmDelete: () => _showDeleteConfirmDialog(s),
                                     onDelete: () async {
                                       await DatabaseService.instance
                                           .deleteStudySession(s.studyId!);
@@ -463,9 +620,16 @@ class _SubjectItem extends StatelessWidget {
 
 class _SessionItem extends StatelessWidget {
   final StudySession session;
+  final VoidCallback onEdit;
+  final Future<bool> Function() onConfirmDelete;
   final VoidCallback onDelete;
 
-  const _SessionItem({required this.session, required this.onDelete});
+  const _SessionItem({
+    required this.session,
+    required this.onEdit,
+    required this.onConfirmDelete,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -478,50 +642,99 @@ class _SessionItem extends StatelessWidget {
         color: AppColors.surfaceAlt,
         child: const Icon(Icons.delete_outline, color: AppColors.textSecondary, size: 20),
       ),
+      confirmDismiss: (direction) async => await onConfirmDelete(),
       onDismissed: (_) => onDelete(),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Container(
-              width: 8, height: 8,
-              margin: const EdgeInsets.only(right: 14),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: session.isDone ? AppColors.primary : AppColors.border,
+      child: InkWell(
+        onTap: onEdit,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 8, height: 8,
+                margin: const EdgeInsets.only(right: 14),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: session.isDone ? AppColors.primary : AppColors.border,
+                ),
               ),
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(session.subject, style: const TextStyle(
+                      color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w500,
+                    )),
+                    const SizedBox(height: 2),
+                    Text(session.topic, style: const TextStyle(
+                      color: AppColors.textSecondary, fontSize: 12,
+                    )),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(session.subject, style: const TextStyle(
-                    color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w500,
+                  Text(_fmtHours(session.durationMinutes), style: const TextStyle(
+                    color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w500,
                   )),
                   const SizedBox(height: 2),
-                  Text(session.topic, style: const TextStyle(
-                    color: AppColors.textSecondary, fontSize: 12,
-                  )),
+                  Text(
+                    session.isDone ? 'Completed' : 'Upcoming',
+                    style: TextStyle(
+                      color: session.isDone ? AppColors.primary : AppColors.textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
                 ],
               ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(_fmtHours(session.durationMinutes), style: const TextStyle(
-                  color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w500,
-                )),
-                const SizedBox(height: 2),
-                Text(
-                  session.isDone ? 'Completed' : 'Upcoming',
-                  style: TextStyle(
-                    color: session.isDone ? AppColors.primary : AppColors.textSecondary,
-                    fontSize: 11,
-                  ),
+              const SizedBox(width: 4),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, size: 18, color: AppColors.textSecondary),
+                color: AppColors.surface,
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: const BorderSide(color: AppColors.border),
                 ),
-              ],
-            ),
-          ],
+                onSelected: (val) async {
+                  if (val == 'edit') {
+                    onEdit();
+                  } else if (val == 'delete') {
+                    final confirmed = await onConfirmDelete();
+                    if (confirmed) {
+                      onDelete();
+                    }
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    height: 38,
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined, size: 16, color: AppColors.textPrimary),
+                        SizedBox(width: 10),
+                        Text('Edit', style: TextStyle(color: AppColors.textPrimary, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    height: 38,
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, size: 16, color: AppColors.textSecondary),
+                        SizedBox(width: 10),
+                        Text('Hapus', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

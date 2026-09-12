@@ -97,6 +97,16 @@ class DatabaseService {
     return result.map((json) => TransactionItem.fromMap(json)).toList();
   }
 
+  Future<int> updateTransaction(TransactionItem item) async {
+    final db = await instance.database;
+    return await db.update(
+      'transactions',
+      item.toMap(),
+      where: 'id = ?',
+      whereArgs: [item.id],
+    );
+  }
+
   Future<int> deleteTransaction(int id) async {
     final db = await instance.database;
     return await db.delete(

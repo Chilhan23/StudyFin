@@ -3,6 +3,7 @@ import '../main.dart' show AppColors;
 import '../models/study_session.dart';
 import '../models/transaction_item.dart';
 import '../services/database_services.dart';
+import '../utils/formatters.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -88,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen>
       list.add(_ActivityEntry(
         icon: t.isIncome ? Icons.add_circle_outline : Icons.remove_circle_outline,
         title: t.title,
-        subtitle: '${t.isIncome ? 'Income' : 'Expense'} · ${_fmtRupiah(t.amount)}',
+        subtitle: '${t.isIncome ? 'Income' : 'Expense'} · ${formatRupiah(t.amount)}',
         date: t.date,
         iconColor: t.isIncome ? AppColors.incomeColor : AppColors.expenseColor,
       ));
@@ -150,7 +151,7 @@ class _HomeScreenState extends State<HomeScreen>
                           const SizedBox(width: 12),
                           Expanded(child: _SummaryCard(
                             label: 'Balance',
-                            value: _fmtRupiah(_balance),
+                            value: formatRupiah(_balance),
                             icon: Icons.account_balance_wallet_outlined,
                             sub: '${_transactions.length} transactions',
                           )),
@@ -198,12 +199,6 @@ class _HomeScreenState extends State<HomeScreen>
 }
 
 // ── Shared helpers ────────────────────────────────────────────────
-String _fmtRupiah(double amount) {
-  if (amount < 0) return '-${_fmtRupiah(amount.abs())}';
-  if (amount >= 1000000) return 'Rp ${(amount / 1000000).toStringAsFixed(1)}M';
-  if (amount >= 1000) return 'Rp ${(amount / 1000).toStringAsFixed(0)}K';
-  return 'Rp ${amount.toStringAsFixed(0)}';
-}
 
 String _fmtMins(int mins) {
   final h = mins ~/ 60;
